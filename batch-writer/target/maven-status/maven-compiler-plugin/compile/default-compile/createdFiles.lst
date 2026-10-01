@@ -1,0 +1,5 @@
+ch\pritz\batchwriter\BatchWriterApplication.class
+ch\pritz\batchwriter\MessageDto.class
+ch\pritz\batchwriter\MessageListener.class
+ch\pritz\batchwriter\RabbitConfig.class
+ch\pritz\batchwriter\MessageWriterRepository.class

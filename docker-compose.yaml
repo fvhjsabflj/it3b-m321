@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-pritz}
+    networks:
+      - chat-net
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    networks:
+      - chat-net
+
+  batch-writer:
+    build:
+      context: .
+      dockerfile: batch-writer/Dockerfile
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-pritz}
+      SPRING_DATASOURCE_HOST: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      BATCH_SIZE: ${BATCH_SIZE:-500}
+      BATCH_TIMEOUT_MS: ${BATCH_TIMEOUT_MS:-200}
+    networks:
+      - chat-net
+    depends_on:
+      - postgres
+      - rabbitmq
+
+networks:
+  chat-net:
+    driver: bridge

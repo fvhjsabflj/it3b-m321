@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: batch-writer
+
+  datasource:
+    url: jdbc:postgresql://${SPRING_DATASOURCE_HOST:postgres}:5432/${POSTGRES_DB:chat}?reWriteBatchedInserts=true
+    username: ${POSTGRES_USER:chat}
+    password: ${POSTGRES_PASSWORD:chat}
+    driver-class-name: org.postgresql.Driver
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+batch:
+  size: ${BATCH_SIZE:500}
+  timeout-ms: ${BATCH_TIMEOUT_MS:200}
