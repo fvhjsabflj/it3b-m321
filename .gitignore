@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/
@@ -28,3 +29,18 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+=======
+# Maven
+target/
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# macOS
+.DS_Store
+
+# Browser-Automation
+.playwright-mcp/
+>>>>>>> 0793dda8b1567089f51e7066d78a7aca9cade43e
