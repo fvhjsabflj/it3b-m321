@@ -36,21 +36,44 @@ public class MessageWriterRepository {
         }
 
         String sql = "INSERT INTO message (id, room_id, sender, text, sent_at) " +
-                     "VALUES (?, ?, ?, ?, ?) " +
-                     "ON CONFLICT (id) DO NOTHING";
+                "VALUES (?, ?, ?, ?, ?) " +
+                "ON CONFLICT (id) DO NOTHING";
 
         List<Object[]> batchArgs = new ArrayList<>();
         for (MessageDto msg : messages) {
             Object[] params = new Object[] {
-                msg.getId(),
-                msg.getRoomId(),
-                msg.getSender(),
-                msg.getText(),
-                msg.getSentAt() != null ? Timestamp.from(msg.getSentAt().toInstant()) : null
+                    msg.getId(),
+                    msg.getRoomId(),
+                    msg.getSender(),
+                    msg.getText(),
+                    msg.getSentAt() != null ? Timestamp.from(msg.getSentAt().toInstant()) : null
             };
             batchArgs.add(params);
         }
 
         jdbcTemplate.batchUpdate(sql, batchArgs);
+    }
+
+    /**
+     * Speichert eine einzelne Nachricht in der Datenbank (Fail-Safe Fallback).
+     *
+     * @param msg Die zu speichernde Nachricht
+     */
+    public void save(MessageDto msg) {
+        if (msg == null || msg.getId() == null) {
+            return;
+        }
+
+        String sql = "INSERT INTO message (id, room_id, sender, text, sent_at) " +
+                "VALUES (?, ?, ?, ?, ?) " +
+                "ON CONFLICT (id) DO NOTHING";
+
+        jdbcTemplate.update(sql,
+                msg.getId(),
+                msg.getRoomId(),
+                msg.getSender(),
+                msg.getText(),
+                msg.getSentAt() != null ? Timestamp.from(msg.getSentAt().toInstant()) : null
+        );
     }
 }

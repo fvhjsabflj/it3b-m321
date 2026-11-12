@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -27,8 +28,8 @@ public class MessageListener {
 
     /**
      * Empfaengt ein Batch von Nachrichten aus der Queue chat.persist und schreibt sie in die DB.
-     * Bei DB-Fehler wartet der Listener 2 Sekunden und wirft die Exception weiter (Szenario S7),
-     * damit Spring AMQP ein Re-Queue ohne CPU-Spins durchfuehrt.
+     * Beinhaltet Fail-Safe-Logik: Ungueltige Nachrichten oder unkorrigierbare Fehler werden
+     * isoliert verworfen, um Endlosschleifen (Poison Pills) zu verhindern.
      *
      * @param messages Liste der konsumierten Nachrichten
      */
@@ -38,17 +39,37 @@ public class MessageListener {
             return;
         }
 
-        try {
-            repository.saveAllInBatch(messages);
-            log.info("{} Nachrichten erfolgreich in Datenbank geschrieben.", messages.size());
-        } catch (Exception e) {
-            log.error("Fehler beim Schreiben der Batch in die Datenbank. Warte 2 Sekunden vor Retry...", e);
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
+        // 1. Vorab-Validierung: Filtere korrupte/ungueltige Nachrichten (Poison-Pill-Schutz)
+        List<MessageDto> validMessages = new ArrayList<>();
+        for (MessageDto msg : messages) {
+            if (msg != null && msg.getId() != null && msg.getRoomId() != null) {
+                validMessages.add(msg);
+            } else {
+                log.warn("Ungueltige oder beschaedigte Nachricht erkannt und verworfen: {}", msg);
             }
-            throw e;
+        }
+
+        if (validMessages.isEmpty()) {
+            return;
+        }
+
+        try {
+            // Versuche den schnellen Batch-Insert
+            repository.saveAllInBatch(validMessages);
+            log.info("{} Nachrichten erfolgreich in Datenbank geschrieben.", validMessages.size());
+        } catch (Exception e) {
+            log.warn("Batch-Insert fehlgeschlagen. Starte Einzel-Fallback, um Endlosschleifen zu verhindern...", e);
+
+            // 2. Fallback: Speichere Nachrichten einzeln.
+            // Wenn eine einzelne Nachricht kaputt ist, wird nur diese verworfen, der Rest gerettet.
+            for (MessageDto msg : validMessages) {
+                try {
+                    repository.save(msg);
+                } catch (Exception singleEx) {
+                    log.error("Kritischer Fehler bei Nachricht ID: {}. Nachricht wird verworfen (Poison Pill).", msg.getId(), singleEx);
+                    // Hier absichtlich NICHT weiterwerfen, damit die kaputte Nachricht die Queue nicht blockiert!
+                }
+            }
         }
     }
 }
